@@ -37,10 +37,14 @@ def classify(ofh=None,keep_fp=None):
 	X_test = snv[snv.columns[12:36]].values
 	indel = indel.dropna(axis=0,subset=indel.columns[12:36])
 	X_test_indel = indel[indel.columns[12:36]].values
-	snv['pred'] = clf.predict(X_test)
-	snv['prob'] = clf.predict_proba(X_test)[:, 1]
-	indel['pred'] = clf_indels.predict(X_test_indel)
-	indel['prob'] = clf_indels.predict_proba(X_test_indel)[:, 1]
+	if snv.empty:print("No SNVs to Classify")
+	else:
+		snv['pred'] = clf.predict(X_test)
+		snv['prob'] = clf.predict_proba(X_test)[:, 1]
+	if indel.empty:print("No INDELs to Classify")
+	else:	
+		indel['pred'] = clf_indels.predict(X_test_indel)
+		indel['prob'] = clf_indels.predict_proba(X_test_indel)[:, 1]
         #df = snv # TO DO: ADD IN THE INDELS!!!
 	df_auto = pd.concat([snv,indel])
 	#print(df_auto)
@@ -60,29 +64,37 @@ def classify(ofh=None,keep_fp=None):
 	X_test = snvX[snvX.columns[12:36]].values
 	indelX = indelX.dropna(axis=0,subset=indelX.columns[12:36])
 	X_test_indel = indelX[indelX.columns[12:36]].values
-	snvX['pred'] = clf_chrX_snps.predict(X_test)
-	snvX['prob'] = clf_chrX_snps.predict_proba(X_test)[:, 1]
-	indelX['pred'] = clf_chrX_chrY_indels.predict(X_test_indel)
-	indelX['prob'] = clf_chrX_chrY_indels.predict_proba(X_test_indel)[:, 1]
+	if snvX.empty:print("No chrX SNVs to Classify")
+	else:	
+		snvX['pred'] = clf_chrX_snps.predict(X_test)
+		snvX['prob'] = clf_chrX_snps.predict_proba(X_test)[:, 1]
+	if indelX.empty:print("No chrY INDELs to Classify")
+	else:	
+		indelX['pred'] = clf_chrX_chrY_indels.predict(X_test_indel)
+		indelX['prob'] = clf_chrX_chrY_indels.predict_proba(X_test_indel)[:, 1]
 	#df = snv # TO DO: ADD IN THE INDELS!!!
-	dfX = pd.concat([snv,indel])
+	dfX = pd.concat([snvX,indelX])
 	if keep_fp == False:
 		dfX = dfX.loc[dfX['pred']==1]
-	dfX.to_csv(ofh,sep="\t",index=False)
-	'''	
-	snv = dfY.loc[(dfY['ref'].str.len()==1) & (dfY['alt'].str.len()==1)]
-	indel = dfY.loc[(dfY['ref'].str.len()!=1) or (dfY['alt'].str.len()!=1)]
-	snv = snv.dropna(axis=0,subset=snv.columns[12:36])
-	X_test = snv[snv.columns[12:36]].values
-	indel = indel.dropna(axis=0,subset=snv.columns[12:36])
-	X_test_indel = indel[indel.columns[12:36]].values
-	snv['pred'] = clf_chrY_snps.predict(X_test)
-	snv['prob'] = clf_chrY_snps.predict_proba(X_test)[:, 1]
-	indel['pred'] = clf_chrX_chrY_indels.predict(X_test_indel)
-	indel['prob'] = clf_chrX_chrY_indels.predict_proba(X_test_indel)[:, 1]
+	dfX.to_csv(ofh,sep="\t",index=False,)
+		
+	snvY = dfY.loc[(dfY['ref'].str.len()==1) & (dfY['alt'].str.len()==1)]
+	indelY = dfY.loc[(dfY['ref'].str.len()!=1) | (dfY['alt'].str.len()!=1)]
+	snvY = snvY.dropna(axis=0,subset=snv.columns[12:36])
+	X_test = snvY[snvY.columns[12:36]].values
+	indelY = indelY.dropna(axis=0,subset=snv.columns[12:36])
+	X_test_indel = indelY[indelY.columns[12:36]].values
+	if snvY.empty:print("No chrY SNVs to Classify")
+	else:
+		snvY['pred'] = clf_chrY_snps.predict(X_test)
+		snvY['prob'] = clf_chrY_snps.predict_proba(X_test)[:, 1]
+	if indelY.empty:print("No chrY INDELs to Classify")
+	else:
+		indelY['pred'] = clf_chrX_chrY_indels.predict(X_test_indel)
+		indelY['prob'] = clf_chrX_chrY_indels.predict_proba(X_test_indel)[:, 1]
         #df = snv # TO DO: ADD IN THE INDELS!!!
-	dfY = pd.concat([snv,indel])
+	dfY = pd.concat([snvY,indelY])
 	if keep_fp == False:
 		dfY = dfY.loc[dfY['pred']==1]
 	dfY.to_csv(ofh,sep="\t",index=False)
-	'''
+
