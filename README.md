@@ -1,11 +1,13 @@
 # pyDNM
 ----
 
+Classifier used to discover single-nucleotide variant (SNV) de novo mutations (DNMs) and indel DNMs.
+
 Python clone of [ForestDNM](http://sebatlab.ucsd.edu/software-data) (Michaelson et al., Cell 2012)
 
 ---
 
-:warning: this repo is still under construction :construction:
+:warning: Still under construction :construction:
 USE AT YOUR OWN RISK
 
 ---
@@ -30,7 +32,7 @@ oooooooooo oooo   oooo   888    88o  8888o  88    8888o   888
  888           888
 o888        o8o888                                         
 
-python port of forestDNM for SNVs+INDELs : http://sebatlab.ucsd.edu/software-data 
+Python port of forestDNM for SNVs+INDELs : http://sebatlab.ucsd.edu/software-data 
 Version 0.1.0.0    Authors: Danny Antaki, Aojie Lian, James Guevara    
                    Contact: dantaki at ucsd dot edu
 ---------------------------------------------------------------------------------
