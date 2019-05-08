@@ -1,0 +1,4 @@
+include README.md
+include pyDNM/*.py
+include pyDNM/*
+include pyDNM/pydnm.snv.clf.joblib
