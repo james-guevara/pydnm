@@ -1,7 +1,7 @@
 # pyDNM
 ----
 
-python clone of [ForestDNM](http://sebatlab.ucsd.edu/software-data) (Michaelson et al., Cell 2012)
+Python clone of [ForestDNM](http://sebatlab.ucsd.edu/software-data) (Michaelson et al., Cell 2012)
 
 ---
 
