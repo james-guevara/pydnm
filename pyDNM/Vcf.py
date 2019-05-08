@@ -144,10 +144,11 @@ class Vcf():
             # load genotypes
             self.index_format(r[8])
             self.load_genotypes(r)
-            if self.missing[0]==True:
-                if verb==True: sys.stderr.write('WARNING: missing genotypes {} {}\n'.format(variant,','.join(self.missing[1])))
-                continue
-            
+            chrom_tmp = variant[0]
+            if variant[0] != "chrX" and variant[0] != "X" and variant[0] != "chrY" and variant[0] != "Y":
+                if self.missing[0]==True:
+                    if verb==True: sys.stderr.write('WARNING: missing genotypes {} {}\n'.format(variant,','.join(self.missing[1])))
+                    continue
             """
             Foreach trio
             """
@@ -180,7 +181,6 @@ class Vcf():
                     intersect_range(pos0,par2)==0):
 
                         is_diploid=False # haploid genotype
-                        
                 if is_diploid==False and len(set(alleles)) > 1: continue
 
                 par,dnm = None,None # parent allele, de novo allele
@@ -188,24 +188,25 @@ class Vcf():
                     # Diploid
                         # if the offspring allele is NOT in parents genotype ==> De Novo
                     if is_diploid==True:
+                        if "." in a: continue
                         if str(a) not in dgt and str(a) not in mgt: dnm=int(a)
                         # if the offspring allele is in ONE of the parents genotype ==> Inherited
                         if str(a) in dgt or str(a) in mgt: par=int(a)
                     # Haploid
                     else:
+                        if "." in a: continue
                         if chrom == 'chrX' and str(a) not in mgt: dnm=int(a)
                         if chrom == 'chrY' and str(a) not in dgt: dnm=int(a)
-
                 # For male sex chromosome variants, get the correct parent allele
                 if is_diploid==False and dnm != None:
-                    par_alleles = mgt.replace('|','/').split('/')
-                    if chrom == 'chrY': par_alleles = dgt.replace('|','/').split('/')
+                    if chrom == "chrX": par_alleles = mgt.replace('|','/').split('/')
+                    elif chrom == 'chrY': par_alleles = dgt.replace('|','/').split('/')
+                    if "." in par_alleles: continue
                     for a in par_alleles:
                         if str(a) not in kgt: par=int(a)
 
                 # skip if there is not one inherited and one de novo allele
                 if par==None or dnm==None: continue
-                
                 # init Features
                 Feat = Feature()
                 # load INFO features
@@ -213,17 +214,34 @@ class Vcf():
                 # skip multiallelic
                 Feat.n_alt = len(str(r[4]).split(','))
                 if Feat.n_alt > 1: continue
-                
                 #-------------------------------------------------------------------------------------------
                 # Allele depth
                 if self.format.get('AD')==None: 
                     if verb==True: sys.stderr.write('WARNING: missing allele depth AD {}\n'.format(variant))
                     continue
-                dad_ad,dad_dp = self.allele_depth(r[self.ids[dad]],dnm,par)
-                mom_ad,mom_dp = self.allele_depth(r[self.ids[mom]],dnm,par)
-                kid_ad,kid_dp = self.allele_depth(r[self.ids[kid]],dnm,par)
-                if dad_ad==-1 or mom_ad==-1 or kid_ad==-1: continue
-                if not np.isfinite(dad_dp) or not np.isfinite(mom_dp) or not np.isfinite(kid_dp): continue
+                #print(l)
+                #print(kid)
+                if is_diploid==False:
+                    if chrom.endswith("X"):
+                        dad_ad = -1
+                        dad_dp = -1
+                        mom_ad,mom_dp = self.allele_depth(r[self.ids[mom]],dnm,par)
+                        kid_ad,kid_dp = self.allele_depth(r[self.ids[kid]],dnm,par)
+                    else:
+                        mom_ad = -1
+                        mom_dp = -1
+                        dad_ad,dad_dp = self.allele_depth(r[self.ids[dad]],dnm,par)
+                        kid_ad,kid_dp = self.allele_depth(r[self.ids[kid]],dnm,par)
+                else:
+                    if "." in kgt or "." in dgt or "." in mgt: continue
+                    dad_ad,dad_dp = self.allele_depth(r[self.ids[dad]],dnm,par)
+                    mom_ad,mom_dp = self.allele_depth(r[self.ids[mom]],dnm,par)
+                    kid_ad,kid_dp = self.allele_depth(r[self.ids[kid]],dnm,par)
+                if is_diploid==True:
+                #if variant[0] != "chrX" and variant[0] != "X" and variant[0] != "chrY" and variant[0] != "Y":
+                    if dad_ad==-1 or mom_ad==-1 or kid_ad==-1: continue
+                # if variant[0] != "chrX" and variant[0] != "X" and variant[0] != "chrY" and variant[0] != "Y":
+                    if not np.isfinite(dad_dp) or not np.isfinite(mom_dp) or not np.isfinite(kid_dp): continue
 
                 Feat.p_ar_max= max(dad_ad,mom_ad)
                 Feat.p_ar_min= min(dad_ad,mom_ad)
@@ -232,34 +250,58 @@ class Vcf():
                 Feat.p_dp_min = min(dad_dp,mom_dp)
                 Feat.o_dp = kid_dp
                 #-------------------------------------------------------------------------------------------
-
                 #-------------------------------------------------------------------------------------------
                 # Genotype quality scores
                 if self.format.get('GQ')==None:
                     if verb==True: sys.stderr.write('WARNING: missing genotype quality GQ {}\n'.format(variant))
                     continue
-                kid_gq,dad_gq,mom_gq = self.genotype_quals(r[self.ids[kid]]),self.genotype_quals(r[self.ids[dad]]),self.genotype_quals(r[self.ids[mom]])
-                if kid_gq==-1 or dad_gq==-1 or mom_gq==-1: continue
+                if is_diploid==False:
+                    if chrom.endswith("X"):
+                        kid_gq,mom_gq = self.genotype_quals(r[self.ids[kid]]),self.genotype_quals(r[self.ids[mom]])
+                        dad_gq = -1
+                    else:
+                        kid_gq,dad_gq = self.genotype_quals(r[self.ids[kid]]),self.genotype_quals(r[self.ids[dad]])
+                        mom_gq = -1 
+                else:
+                    kid_gq,dad_gq,mom_gq = self.genotype_quals(r[self.ids[kid]]),self.genotype_quals(r[self.ids[dad]]),self.genotype_quals(r[self.ids[mom]])
                 Feat.p_gq_max = max(dad_gq,mom_gq)
                 Feat.p_gq_min = min(dad_gq,mom_gq)
                 Feat.o_gq = kid_gq
                 #-------------------------------------------------------------------------------------------
-
                 #-------------------------------------------------------------------------------------------
                 # Phred scaled genotype likelihoods
                 if self.format.get('PL')==None:
                     if verb==True: sys.stderr.write('WARNING: missing Phred-adjusted genotype likelihoods PL {}\n'.format(variant))
                     continue
-                kid_pl, dad_pl, mom_pl = self.phred_quals(r[self.ids[kid]],kgt),self.phred_quals(r[self.ids[dad]],dgt),self.phred_quals(r[self.ids[mom]],mgt)
-                if kid_pl==-1 or dad_pl==-1 or mom_pl==-1: continue
-                kid_d_pl,kid_m_pl, dad_o_pl, mom_o_pl = self.phred_quals(r[self.ids[kid]],dgt),self.phred_quals(r[self.ids[kid]],mgt),self.phred_quals(r[self.ids[dad]],kgt),self.phred_quals(r[self.ids[mom]],kgt)
-                if kid_d_pl==-1 or kid_m_pl==-1 or dad_o_pl==-1 or mom_o_pl == -1: continue
+                if is_diploid==False:
+                    if chrom.endswith("X"):
+                        kid_pl,mom_pl = self.phred_quals(r[self.ids[kid]],kgt),self.phred_quals(r[self.ids[mom]],mgt)
+                        dad_pl = -1
+                        kid_m_pl,mom_o_pl = self.phred_quals(r[self.ids[kid]],mgt),self.phred_quals(r[self.ids[mom]],kgt)
+                        kid_d_pl = -1
+                        dad_o_pl = -1
+                    else:
+                        kid_pl,dad_pl = self.phred_quals(r[self.ids[kid]],kgt),self.phred_quals(r[self.ids[dad]],dgt)
+                        mom_pl = -1
+                        kid_d_pl,dad_o_pl = self.phred_quals(r[self.ids[kid]],dgt),self.phred_quals(r[self.ids[dad]],kgt)
+                        kid_m_pl = -1
+                        mom_o_pl = -1
+                else:
+                    kid_pl, dad_pl, mom_pl = self.phred_quals(r[self.ids[kid]],kgt),self.phred_quals(r[self.ids[dad]],dgt),self.phred_quals(r[self.ids[mom]],mgt)
+                    if kid_pl==-1 or dad_pl==-1 or mom_pl==-1: continue
+                    kid_d_pl,kid_m_pl, dad_o_pl, mom_o_pl = self.phred_quals(r[self.ids[kid]],dgt),self.phred_quals(r[self.ids[kid]],mgt),self.phred_quals(r[self.ids[dad]],kgt),self.phred_quals(r[self.ids[mom]],kgt)
+                if is_diploid==True:
+                    if kid_d_pl==-1 or kid_m_pl==-1 or dad_o_pl==-1 or mom_o_pl == -1: continue
                 Feat.p_og_max = max(dad_o_pl,mom_o_pl)
                 Feat.p_og_min = min(dad_o_pl,mom_o_pl)
                 Feat.p_pg_max = max(dad_pl,mom_pl)
                 Feat.p_pg_min = min(dad_pl,mom_pl)
                 Feat.og = kid_pl
-                Feat.o_pg = np.median([kid_d_pl,kid_m_pl])
+                if is_diploid==False:
+                    if chrom.endswith("X"): Feat.o_pg = kid_m_pl
+                    else: Feat.o_pg = kid_d_pl
+                else:
+                    Feat.o_pg = np.median([kid_d_pl,kid_m_pl])
                 #-------------------------------------------------------------------------------------------
 
                 #-------------------------------------------------------------------------------------------
