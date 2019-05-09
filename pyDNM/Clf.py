@@ -57,7 +57,6 @@ def classify(ofh=None,keep_fp=None,pseud=None):
     # Make dataframe from input pydnm file
     df = pd.read_csv(ofh,sep="\t")
     df.to_csv("bleh.txt",sep="\t",header=True,index=False)
-    sys.exit()
 
     df = pd.merge(df, df_fam, on="iid")
 
@@ -76,7 +75,6 @@ def classify(ofh=None,keep_fp=None,pseud=None):
     df_male_PAR_X_indel = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "1") & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & (df["pos"].between(pseud_chrX_interval_one[0],pseud_chrX_interval_one[1]) | df["pos"].between(pseud_chrX_interval_two[0], pseud_chrX_interval_two[1]))]
     df_male_PAR_Y_indel = df.loc[(df["chrom"] == "chrY") & (df["sex"] == "1") & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & (df["pos"].between(pseud_chrY_interval_one[0],pseud_chrY_interval_one[1]) | df["pos"].between(pseud_chrY_interval_two[0], pseud_chrY_interval_two[1]))]
 
-     
     classify_dataframe(df_autosomal_SNV,clf,ofh,True,"w")
     classify_dataframe(df_autosomal_indel,clf_indels,ofh)
     classify_dataframe(df_female_X_SNV,clf,ofh)
