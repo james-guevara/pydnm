@@ -72,5 +72,5 @@ def main():
         sys.stderr = lfh
     _Fam = Fam()
     _Fam.load_fam(fam)
-    Vcf().parse(vcf,_Fam,verb,ofh,pseudoautosome(gen))
-    classify(ofh,keep_fp,pseudoautosome(gen))
+    # Vcf().parse(vcf,_Fam,verb,ofh,pseudoautosome(gen))
+    classify(ofh,keep_fp,pseudoautosome(gen),vcf)

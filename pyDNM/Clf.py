@@ -3,15 +3,19 @@ import pandas as pd
 from sklearn.externals import joblib
 from pyDNM.Backend import get_path
 import os,sys
+from pysam import VariantFile
 
-def classify_dataframe(df, clf, ofh,pyDNM_header=False, mode="a"):
+
+def classify_dataframe(df, clf, ofh,pyDNM_header=False, mode="a",keep_fp=False):
     df = df.dropna(axis=0,subset=df.columns[12:36])
     if df.empty: 
-        print("Empty dataframe.")
+        # print("Empty dataframe.")
         return 0
     X = df[df.columns[12:36]].values
     df["pred"] = clf.predict(X)
     df["prob"] = clf.predict_proba(X)[:,1]
+    if keep_fp == False:
+        df = df.loc[df["pred"] == 1]
     with open(ofh, mode) as f:
         df.to_csv(f, sep="\t",header=pyDNM_header, index=False)
 
@@ -29,7 +33,8 @@ def get_sex(fam_fh):
     df.drop(columns=["index"],inplace=True)
     return df
 
-def classify(ofh=None,keep_fp=None,pseud=None):
+def classify(ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=False,make_vcf=False):
+    ofh_new = ofh + ".preds"
     # fam 
     fam_fh = "/home/j3guevar/pydnm_src/pydnm/reach_ssc1-4.fam"
     df_fam = get_sex(fam_fh)
@@ -56,7 +61,10 @@ def classify(ofh=None,keep_fp=None,pseud=None):
     clf_chrX_chrY_indels = joblib.load(indels_chrX_chrY_clf)
     # Make dataframe from input pydnm file
     df = pd.read_csv(ofh,sep="\t")
-    df.to_csv("bleh.txt",sep="\t",header=True,index=False)
+    
+    # Filter original dataframe
+    # df = df.loc[(df["offspring_gt"] != "0/0")] 
+
 
     df = pd.merge(df, df_fam, on="iid")
 
@@ -75,15 +83,68 @@ def classify(ofh=None,keep_fp=None,pseud=None):
     df_male_PAR_X_indel = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "1") & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & (df["pos"].between(pseud_chrX_interval_one[0],pseud_chrX_interval_one[1]) | df["pos"].between(pseud_chrX_interval_two[0], pseud_chrX_interval_two[1]))]
     df_male_PAR_Y_indel = df.loc[(df["chrom"] == "chrY") & (df["sex"] == "1") & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & (df["pos"].between(pseud_chrY_interval_one[0],pseud_chrY_interval_one[1]) | df["pos"].between(pseud_chrY_interval_two[0], pseud_chrY_interval_two[1]))]
 
-    classify_dataframe(df_autosomal_SNV,clf,ofh,True,"w")
-    classify_dataframe(df_autosomal_indel,clf_indels,ofh)
-    classify_dataframe(df_female_X_SNV,clf,ofh)
-    classify_dataframe(df_female_X_indel,clf_indels,ofh)
-    classify_dataframe(df_male_nonPAR_X_SNV,clf_chrX_snps,ofh)
-    classify_dataframe(df_male_nonPAR_Y_SNV,clf_chrY_snps,ofh)    
-    classify_dataframe(df_male_nonPAR_X_indel,clf_chrX_chrY_indels,ofh)    
-    classify_dataframe(df_male_nonPAR_Y_indel,clf_chrX_chrY_indels,ofh)
-    classify_dataframe(df_male_PAR_X_SNV,clf,ofh)
-    classify_dataframe(df_male_PAR_Y_SNV,clf,ofh)
-    classify_dataframe(df_male_PAR_X_indel,clf_indels,ofh)
-    classify_dataframe(df_male_PAR_Y_indel,clf_indels,ofh)
+
+    classify_dataframe(df_autosomal_SNV,clf,ofh_new,True,"w")
+    classify_dataframe(df_autosomal_indel,clf_indels,ofh_new)
+    classify_dataframe(df_female_X_SNV,clf,ofh_new)
+    classify_dataframe(df_female_X_indel,clf_indels,ofh_new)
+    classify_dataframe(df_male_nonPAR_X_SNV,clf_chrX_snps,ofh_new)
+    classify_dataframe(df_male_nonPAR_Y_SNV,clf_chrY_snps,ofh_new)    
+    classify_dataframe(df_male_nonPAR_X_indel,clf_chrX_chrY_indels,ofh_new)    
+    classify_dataframe(df_male_nonPAR_Y_indel,clf_chrX_chrY_indels,ofh_new)
+    classify_dataframe(df_male_PAR_X_SNV,clf,ofh_new)
+    classify_dataframe(df_male_PAR_Y_SNV,clf,ofh_new)
+    classify_dataframe(df_male_PAR_X_indel,clf_indels,ofh_new)
+    classify_dataframe(df_male_PAR_Y_indel,clf_indels,ofh_new)
+
+    # if make_bed: make_output_bed(ofh)
+    # if make_vcf: make_output_vcf(vcf,ofh)
+
+def make_output_bed(ofh):
+    ofb = "test.bed"
+    fout = open(ofb,"w")
+    f = open(ofh,"r")
+    f.readline()
+    dnm_bed = []
+    for line in f:
+        linesplit = line.rstrip().split("\t")
+        chrom = linesplit[0]
+        pos = linesplit[1]
+        ref = linesplit[3]
+        alt = linesplit[4]
+        iid = linesplit[5]
+        pred = linesplit[-2]
+        prob = linesplit[-1]
+        pos_0 = str(int(pos)-1)
+        pos_1 = pos
+        ID_col = "{}:{}:{}:{}:{}:{}:{}".format(chrom,pos,ref,alt,iid,pred,prob)
+        newline = "{}\t{}\t{}\t{}\n".format(chrom,pos_0,pos_1,ID_col)
+        fout.write(newline)
+        dnm_bed.append(newline)
+    return dnm_bed
+
+def make_output_vcf(vcf,ofh):
+    ofv = "test.vcf"
+    vcf_in = VariantFile(vcf) 
+    print(vcf_in)
+    new_header = vcf_in.header
+    new_header.info.add("pyDNM_pred",1,"Float","pyDNM prediction")
+    new_header.info.add("pyDNM_prob",1,"Float","pyDNM probability")
+    # vcf_out = VariantFile("-", "w", header=vcf_in.header)
+    dnm_bed = set()
+    # for line in f:
+    #     linesplit = line.rstrip().split("\t")
+    #     chrom = linesplit[0]
+    #     pos = linesplit[1]
+    #     ref = linesplit[3]
+    #     alt = linesplit[4]
+    #     iid = linesplit[5]
+    #     pred = linesplit[-2]
+    #     prob = linesplit[-1]
+    #     if pred == "0": continue
+    #     newline = [chrom,pos,ref,alt]
+    #     dnm_bed.add(newline) 
+    print("hello")
+    for rec in vcf_in.fetch():
+        dnm = [rec.chrom,rec.pos,rec.ref,rec.alts[0]
+        if dnm in dnm_bed:
