@@ -4,6 +4,7 @@ from sklearn.externals import joblib
 from pyDNM.Backend import get_path
 import os,sys
 from pysam import VariantFile
+import pybedtools
 
 
 def classify_dataframe(df, clf, ofh,pyDNM_header=False, mode="a",keep_fp=False):
@@ -33,10 +34,10 @@ def get_sex(fam_fh):
     df.drop(columns=["index"],inplace=True)
     return df
 
-def classify(ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=False,make_vcf=False):
+def classify(ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=True,make_vcf=True,fam_fh=None):
     ofh_new = ofh + ".preds"
+    
     # fam 
-    fam_fh = "/home/j3guevar/pydnm_src/pydnm/reach_ssc1-4.fam"
     df_fam = get_sex(fam_fh)
     pseud_chrX = pseud["chrX"]
     pseud_chrX_interval_one = pseud_chrX[0]
@@ -96,12 +97,22 @@ def classify(ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=False,make_vcf=F
     classify_dataframe(df_male_PAR_Y_SNV,clf,ofh_new)
     classify_dataframe(df_male_PAR_X_indel,clf_indels,ofh_new)
     classify_dataframe(df_male_PAR_Y_indel,clf_indels,ofh_new)
+    
+    if make_bed: 
+        # ofb = make_output_bed(ofh_new)
+        ofb = "TEST_SNV.bed"
+        a = pybedtools.BedTool(ofb)
+        b = pybedtools.BedTool(vcf)
+        a_and_b = b.intersect(a, u=True, wa=True, header=False, output="a_and_b.pybed2.bed")
 
-    # if make_bed: make_output_bed(ofh)
     # if make_vcf: make_output_vcf(vcf,ofh)
 
+    
+
+
+    
 def make_output_bed(ofh):
-    ofb = "test.bed"
+    ofb = "TEST_SNV.bed"
     fout = open(ofb,"w")
     f = open(ofh,"r")
     f.readline()
@@ -112,6 +123,7 @@ def make_output_bed(ofh):
         pos = linesplit[1]
         ref = linesplit[3]
         alt = linesplit[4]
+        if len(ref) != 1 or len(alt) != 1: continue
         iid = linesplit[5]
         pred = linesplit[-2]
         prob = linesplit[-1]
@@ -121,30 +133,31 @@ def make_output_bed(ofh):
         newline = "{}\t{}\t{}\t{}\n".format(chrom,pos_0,pos_1,ID_col)
         fout.write(newline)
         dnm_bed.append(newline)
-    return dnm_bed
+    return ofb 
 
-def make_output_vcf(vcf,ofh):
-    ofv = "test.vcf"
-    vcf_in = VariantFile(vcf) 
-    print(vcf_in)
-    new_header = vcf_in.header
-    new_header.info.add("pyDNM_pred",1,"Float","pyDNM prediction")
-    new_header.info.add("pyDNM_prob",1,"Float","pyDNM probability")
-    # vcf_out = VariantFile("-", "w", header=vcf_in.header)
-    dnm_bed = set()
-    # for line in f:
-    #     linesplit = line.rstrip().split("\t")
-    #     chrom = linesplit[0]
-    #     pos = linesplit[1]
-    #     ref = linesplit[3]
-    #     alt = linesplit[4]
-    #     iid = linesplit[5]
-    #     pred = linesplit[-2]
-    #     prob = linesplit[-1]
-    #     if pred == "0": continue
-    #     newline = [chrom,pos,ref,alt]
-    #     dnm_bed.add(newline) 
-    print("hello")
-    for rec in vcf_in.fetch():
-        dnm = [rec.chrom,rec.pos,rec.ref,rec.alts[0]
-        if dnm in dnm_bed:
+
+
+# def make_output_vcf(vcf,ofh):
+#     ofv = "TEST.vcf"
+#     vcf_in = VariantFile(vcf) 
+#     print(vcf_in)
+#     new_header = vcf_in.header
+#     new_header.info.add("pyDNM_pred",1,"Float","pyDNM prediction")
+#     new_header.info.add("pyDNM_prob",1,"Float","pyDNM probability")
+#     # vcf_out = VariantFile("-", "w", header=vcf_in.header)
+#     dnm_bed = set()
+#     # for line in f:
+#     #     linesplit = line.rstrip().split("\t")
+#     #     chrom = linesplit[0]
+#     #     pos = linesplit[1]
+#     #     ref = linesplit[3]
+#     #     alt = linesplit[4]
+#     #     iid = linesplit[5]
+#     #     pred = linesplit[-2]
+#     #     prob = linesplit[-1]
+#     #     if pred == "0": continue
+#     #     newline = [chrom,pos,ref,alt]
+#     #     dnm_bed.add(newline) 
+#     for rec in vcf_in.fetch():
+#         dnm = [rec.chrom,rec.pos,rec.ref,rec.alts[0]]
+# 
