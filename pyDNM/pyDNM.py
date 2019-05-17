@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 
 '''
 Copyright <2018> <Danny Antaki>
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -72,5 +72,8 @@ def main():
         sys.stderr = lfh
     _Fam = Fam()
     _Fam.load_fam(fam)
-    Vcf().parse(vcf,_Fam,verb,ofh,pseudoautosome(gen))
-    classify(ofh,keep_fp)
+    ofh_tmp = ofh + ".tmp"
+    Vcf().parse(vcf,_Fam,verb,ofh_tmp,pseudoautosome(gen))
+    classify(ofh_tmp,ofh,keep_fp,pseudoautosome(gen),vcf,True, True, fam)
+    import os
+    os.remove(ofh_tmp)
