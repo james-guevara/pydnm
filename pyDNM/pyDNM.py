@@ -74,4 +74,6 @@ def main():
     _Fam.load_fam(fam)
     ofh_tmp = ofh + ".tmp"
     Vcf().parse(vcf,_Fam,verb,ofh_tmp,pseudoautosome(gen))
-    classify(ofh,keep_fp,pseudoautosome(gen),vcf)
+    classify(ofh_tmp,ofh,keep_fp,pseudoautosome(gen),vcf,True, True, fam)
+    import os
+    os.remove(ofh_tmp)

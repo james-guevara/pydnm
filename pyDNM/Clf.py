@@ -3,11 +3,12 @@ import pandas as pd
 from sklearn.externals import joblib
 from pyDNM.Backend import get_path
 import os,sys
-from pysam import VariantFile
+
+#from pysam import VariantFile
 import pybedtools
 
-
 def classify_dataframe(df, clf, ofh,pyDNM_header=False, mode="a",keep_fp=False):
+    pd.options.mode.chained_assignment = None
     df = df.dropna(axis=0,subset=df.columns[12:36])
     if df.empty: 
         # print("Empty dataframe.")
@@ -19,7 +20,6 @@ def classify_dataframe(df, clf, ofh,pyDNM_header=False, mode="a",keep_fp=False):
         df = df.loc[df["pred"] == 1]
     with open(ofh, mode) as f:
         df.to_csv(f, sep="\t",header=pyDNM_header, index=False)
-
 def get_sex(fam_fh):
     fam = open(fam_fh, "r")
     fam_dict = {}
@@ -34,10 +34,11 @@ def get_sex(fam_fh):
     df.drop(columns=["index"],inplace=True)
     return df
 
-def classify(ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=True,make_vcf=True,fam_fh=None):
-    ofh_new = ofh + ".preds"
+def classify(ofh_tmp=None,ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=True,make_vcf=True,fam_fh=None):
+    ofh_new = ofh
     
     # fam 
+    #fam_fh = "/home/a1lian/reach_ssc1-4.fam"
     df_fam = get_sex(fam_fh)
     pseud_chrX = pseud["chrX"]
     pseud_chrX_interval_one = pseud_chrX[0]
@@ -61,7 +62,7 @@ def classify(ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=True,make_vcf=Tr
     clf_chrY_snps = joblib.load(snv_chrY_clf)
     clf_chrX_chrY_indels = joblib.load(indels_chrX_chrY_clf)
     # Make dataframe from input pydnm file
-    df = pd.read_csv(ofh,sep="\t")
+    df = pd.read_csv(ofh_tmp,sep="\t")
     
     # Filter original dataframe
     # df = df.loc[(df["offspring_gt"] != "0/0")] 
@@ -69,23 +70,20 @@ def classify(ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=True,make_vcf=Tr
 
     df = pd.merge(df, df_fam, on="iid")
 
-    df_autosomal_SNV = df.loc[(df["chrom"] != "chrY") & (df["chrom"] != "chrX") & (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1)]
-    df_autosomal_indel = df.loc[(df["chrom"] != "chrY") & (df["chrom"] != "chrX") & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1))]
-    df_female_X_SNV = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "2") & (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1)]
-    df_female_X_indel = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "2") & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1))]
-    
-    df_male_nonPAR_X_SNV = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "1") & (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1) & ~(df["pos"].between(pseud_chrX_interval_one[0],pseud_chrX_interval_one[1]) | df["pos"].between(pseud_chrX_interval_two[0], pseud_chrX_interval_two[1]))]
-    df_male_nonPAR_Y_SNV = df.loc[(df["chrom"] == "chrY") & (df["sex"] == "1") & (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1) & ~(df["pos"].between(pseud_chrY_interval_one[0],pseud_chrY_interval_one[1]) | df["pos"].between(pseud_chrY_interval_two[0], pseud_chrY_interval_two[1]))]
-    df_male_nonPAR_X_indel = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "1") & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & ~(df["pos"].between(pseud_chrX_interval_one[0],pseud_chrX_interval_one[1]) | df["pos"].between(pseud_chrX_interval_two[0], pseud_chrX_interval_two[1]))]
-    df_male_nonPAR_Y_indel = df.loc[(df["chrom"] == "chrY") & (df["sex"] == "1") & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & ~(df["pos"].between(pseud_chrY_interval_one[0],pseud_chrY_interval_one[1]) | df["pos"].between(pseud_chrY_interval_two[0], pseud_chrY_interval_two[1]))]
+    df_autosomal_SNV = df.loc[(df["chrom"] != "chrY") & (df["chrom"] != "chrX") &(df["offspring_gt"]=='0/1') & (df["mother_gt"]=='0/0') &(df["father_gt"]=='0/0') & (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1)]
+    df_autosomal_indel = df.loc[(df["chrom"] != "chrY") & (df["chrom"] != "chrX") &(df["offspring_gt"]=='0/1') & (df["mother_gt"]=='0/0') &(df["father_gt"]=='0/0')& ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1))]
+    df_female_X_SNV = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "2") & (df["offspring_gt"]=='0/1') & (df["mother_gt"]=='0/0') &(df["father_gt"]=='0/0') & (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1)]
+    df_female_X_indel = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "2") &(df["offspring_gt"]=='0/1') & (df["mother_gt"]=='0/0') &(df["father_gt"]=='0/0') & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1))]
+    df_male_nonPAR_X_SNV = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "1") & (df["offspring_gt"]=='1/1') & (df["mother_gt"]=='0/0') & (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1) & ~(df["pos"].between(pseud_chrX_interval_one[0],pseud_chrX_interval_one[1]) | df["pos"].between(pseud_chrX_interval_two[0], pseud_chrX_interval_two[1]))]
+    df_male_nonPAR_Y_SNV = df.loc[(df["chrom"] == "chrY") & (df["sex"] == "1") & (df["offspring_gt"]=='1/1')&(df["father_gt"]=='0/0') & (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1) & ~(df["pos"].between(pseud_chrY_interval_one[0],pseud_chrY_interval_one[1]) | df["pos"].between(pseud_chrY_interval_two[0], pseud_chrY_interval_two[1]))]
+    df_male_nonPAR_X_indel = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "1") & (df["offspring_gt"]=='1/1') & (df["mother_gt"]=='0/0') & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & ~(df["pos"].between(pseud_chrX_interval_one[0],pseud_chrX_interval_one[1]) | df["pos"].between(pseud_chrX_interval_two[0], pseud_chrX_interval_two[1]))]
+    df_male_nonPAR_Y_indel = df.loc[(df["chrom"] == "chrY") & (df["sex"] == "1") & (df["offspring_gt"]=='1/1') &(df["father_gt"]=='0/0')& ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & ~(df["pos"].between(pseud_chrY_interval_one[0],pseud_chrY_interval_one[1]) | df["pos"].between(pseud_chrY_interval_two[0], pseud_chrY_interval_two[1]))]
+    df_male_PAR_X_SNV = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "1") & (df["offspring_gt"]=='0/1') & (df["mother_gt"]=='0/0') &(df["father_gt"]=='0/0')& (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1) & (df["pos"].between(pseud_chrX_interval_one[0],pseud_chrX_interval_one[1]) | df["pos"].between(pseud_chrX_interval_two[0], pseud_chrX_interval_two[1]))]
+    df_male_PAR_Y_SNV = df.loc[(df["chrom"] == "chrY") & (df["sex"] == "1") &(df["offspring_gt"]=='0/1') &(df["mother_gt"]=='0/0') &(df["father_gt"]=='0/0')& (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1) & (df["pos"].between(pseud_chrY_interval_one[0],pseud_chrY_interval_one[1]) | df["pos"].between(pseud_chrY_interval_two[0], pseud_chrY_interval_two[1]))]
+    df_male_PAR_X_indel = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "1") & (df["offspring_gt"]=='0/1') & (df["mother_gt"]=='0/0') &(df["father_gt"]=='0/0')& ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & (df["pos"].between(pseud_chrX_interval_one[0],pseud_chrX_interval_one[1]) | df["pos"].between(pseud_chrX_interval_two[0], pseud_chrX_interval_two[1]))]
+    df_male_PAR_Y_indel = df.loc[(df["chrom"] == "chrY") & (df["sex"] == "1") &(df["offspring_gt"]=='0/1') &(df["mother_gt"]=='0/0') &(df["father_gt"]=='0/0')& ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & (df["pos"].between(pseud_chrY_interval_one[0],pseud_chrY_interval_one[1]) | df["pos"].between(pseud_chrY_interval_two[0], pseud_chrY_interval_two[1]))]
 
-    df_male_PAR_X_SNV = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "1") & (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1) & (df["pos"].between(pseud_chrX_interval_one[0],pseud_chrX_interval_one[1]) | df["pos"].between(pseud_chrX_interval_two[0], pseud_chrX_interval_two[1]))]
-    df_male_PAR_Y_SNV = df.loc[(df["chrom"] == "chrY") & (df["sex"] == "1") & (df["ref"].str.len() == 1) & (df["alt"].str.len() == 1) & (df["pos"].between(pseud_chrY_interval_one[0],pseud_chrY_interval_one[1]) | df["pos"].between(pseud_chrY_interval_two[0], pseud_chrY_interval_two[1]))]
-    df_male_PAR_X_indel = df.loc[(df["chrom"] == "chrX") & (df["sex"] == "1") & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & (df["pos"].between(pseud_chrX_interval_one[0],pseud_chrX_interval_one[1]) | df["pos"].between(pseud_chrX_interval_two[0], pseud_chrX_interval_two[1]))]
-    df_male_PAR_Y_indel = df.loc[(df["chrom"] == "chrY") & (df["sex"] == "1") & ((df["ref"].str.len() != 1) | (df["alt"].str.len() != 1)) & (df["pos"].between(pseud_chrY_interval_one[0],pseud_chrY_interval_one[1]) | df["pos"].between(pseud_chrY_interval_two[0], pseud_chrY_interval_two[1]))]
-
-
-    classify_dataframe(df_autosomal_SNV,clf,ofh_new,True,"w")
+    classify_dataframe(df_autosomal_SNV,clf,ofh_new,False,"w")
     classify_dataframe(df_autosomal_indel,clf_indels,ofh_new)
     classify_dataframe(df_female_X_SNV,clf,ofh_new)
     classify_dataframe(df_female_X_indel,clf_indels,ofh_new)
@@ -97,13 +95,17 @@ def classify(ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=True,make_vcf=Tr
     classify_dataframe(df_male_PAR_Y_SNV,clf,ofh_new)
     classify_dataframe(df_male_PAR_X_indel,clf_indels,ofh_new)
     classify_dataframe(df_male_PAR_Y_indel,clf_indels,ofh_new)
-    
+   
+    df = pd.read_csv(ofh_new,sep="\t",header=None)
+    df.columns=['chrom','pos','id','ref','alt','iid','offspring_gt','father_gt','mother_gt','nalt','filter','qual','parent_ar_max','parent_ar_min','offspring_ar','parent_dp_max','parent_dp_min','offspring_dp','parent_dnm_pl_max','parent_dnm_pl_min','parent_inh_pl_max','parent_inh_pl_min','offspring_dnm_pl','offspring_inh_pl','parent_gq_max','parent_gq_min','offspring_gq','VQSLOD','ClippingRankSum','BaseQRankSum','FS','SOR','MQ','MQRankSum','QD','ReadPosRankSum','sex','pred','prob']
+    with open(ofh_new,'w') as f:
+        df.to_csv(f, sep="\t", index=False)
     if make_bed: 
-        # ofb = make_output_bed(ofh_new)
-        ofb = "TEST_SNV.bed"
+        ofb = make_output_bed(ofh_new)
+        #ofb = "TEST.bed"
         a = pybedtools.BedTool(ofb)
         b = pybedtools.BedTool(vcf)
-        a_and_b = b.intersect(a, u=True, wa=True, header=False, output="a_and_b.pybed2.bed")
+        a_and_b = b.intersect(a, u=True, wa=True, header=True, output=ofh_new+".dnm.vcf")
 
     # if make_vcf: make_output_vcf(vcf,ofh)
 
@@ -111,10 +113,10 @@ def classify(ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=True,make_vcf=Tr
 
 
     
-def make_output_bed(ofh):
-    ofb = "TEST_SNV.bed"
+def make_output_bed(ofh_new):
+    ofb =ofh_new+".bed"
     fout = open(ofb,"w")
-    f = open(ofh,"r")
+    f = open(ofh_new,"r")
     f.readline()
     dnm_bed = []
     for line in f:
@@ -123,41 +125,28 @@ def make_output_bed(ofh):
         pos = linesplit[1]
         ref = linesplit[3]
         alt = linesplit[4]
-        if len(ref) != 1 or len(alt) != 1: continue
-        iid = linesplit[5]
-        pred = linesplit[-2]
-        prob = linesplit[-1]
-        pos_0 = str(int(pos)-1)
-        pos_1 = pos
-        ID_col = "{}:{}:{}:{}:{}:{}:{}".format(chrom,pos,ref,alt,iid,pred,prob)
-        newline = "{}\t{}\t{}\t{}\n".format(chrom,pos_0,pos_1,ID_col)
-        fout.write(newline)
-        dnm_bed.append(newline)
+        ###SNPs
+        if len(ref) == 1 and len(alt) == 1: 
+            iid = linesplit[5]
+            pred = linesplit[-2]
+            prob = linesplit[-1]
+            pos_0 = str(int(pos)-1)
+            pos_1 = pos
+            ID_col = "{}:{}:{}:{}:{}:{}:{}".format(chrom,pos,ref,alt,iid,pred,prob)
+            newline = "{}\t{}\t{}\t{}\n".format(chrom,pos_0,pos_1,ID_col)
+            fout.write(newline)
+            dnm_bed.append(newline)
+        ###INDELs
+        else:
+            iid = linesplit[5]
+            pred = linesplit[-2]
+            prob = linesplit[-1]
+            pos_0 = str(int(pos)-1)
+            pos_1= str(int(pos) + len(ref) - 1)
+            ID_col = "{}:{}:{}:{}:{}:{}:{}".format(chrom,pos,ref,alt,iid,pred,prob)
+            newline = "{}\t{}\t{}\t{}\n".format(chrom,pos_0,pos_1,ID_col)
+            fout.write(newline)
+            dnm_bed.append(newline)
+
     return ofb 
-
-
-
-# def make_output_vcf(vcf,ofh):
-#     ofv = "TEST.vcf"
-#     vcf_in = VariantFile(vcf) 
-#     print(vcf_in)
-#     new_header = vcf_in.header
-#     new_header.info.add("pyDNM_pred",1,"Float","pyDNM prediction")
-#     new_header.info.add("pyDNM_prob",1,"Float","pyDNM probability")
-#     # vcf_out = VariantFile("-", "w", header=vcf_in.header)
-#     dnm_bed = set()
-#     # for line in f:
-#     #     linesplit = line.rstrip().split("\t")
-#     #     chrom = linesplit[0]
-#     #     pos = linesplit[1]
-#     #     ref = linesplit[3]
-#     #     alt = linesplit[4]
-#     #     iid = linesplit[5]
-#     #     pred = linesplit[-2]
-#     #     prob = linesplit[-1]
-#     #     if pred == "0": continue
-#     #     newline = [chrom,pos,ref,alt]
-#     #     dnm_bed.add(newline) 
-#     for rec in vcf_in.fetch():
-#         dnm = [rec.chrom,rec.pos,rec.ref,rec.alts[0]]
-# 
+ 
