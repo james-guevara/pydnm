@@ -1,7 +1,9 @@
+#!/usr/bin/env python3 
 import pandas as pd
 from sklearn.externals import joblib
 from pyDNM.Backend import get_path
 import os,sys
+
 #from pysam import VariantFile
 import pybedtools
 
