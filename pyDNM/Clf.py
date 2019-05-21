@@ -103,7 +103,7 @@ def classify(ofh_tmp=None,ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=Tru
         #ofb = "TEST.bed"
         a = pybedtools.BedTool(ofb)
         b = pybedtools.BedTool(vcf)
-        a_and_b = b.intersect(a, u=True, wa=True, header=True, output="test.dnm.vcf")
+        a_and_b = b.intersect(a, u=True, wa=True, header=True, output=ofh_new+".dnm.vcf")
 
     # if make_vcf: make_output_vcf(vcf,ofh)
 
@@ -112,7 +112,7 @@ def classify(ofh_tmp=None,ofh=None,keep_fp=None,pseud=None,vcf=None,make_bed=Tru
 
     
 def make_output_bed(ofh_new):
-    ofb = "TEST.bed"
+    ofb =ofh_new+".bed"
     fout = open(ofb,"w")
     f = open(ofh_new,"r")
     f.readline()
