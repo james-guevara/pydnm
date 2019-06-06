@@ -3,8 +3,6 @@
 
 Classifier used to discover single-nucleotide variant (SNV) de novo mutations (DNMs) and indel DNMs.
 
-Python clone of [ForestDNM](http://sebatlab.ucsd.edu/software-data) (Michaelson et al., Cell 2012)
-
 ---
 
 :warning: Still under construction :construction:
